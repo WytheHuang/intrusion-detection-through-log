@@ -1,8 +1,24 @@
 {
    "cSpell.words": [
+      "Cabe",
+      "datetimez",
       "Distil",
       "distilbert",
+      "ipython",
+      "ndarray",
       "ollama",
-      "Ollama's"
+      "Ollama's",
+      "pathlib",
+      "Perflint",
+      "preds",
+      "pycodestyle",
+      "pydocstyle",
+      "Pyflakes",
+      "pylint",
+      "pytest",
+      "pyupgrade",
+      "scikit",
+      "tqdm",
+      "tryceratops"
    ]
 }

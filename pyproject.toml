@@ -2,19 +2,40 @@
 authors = [
   {name = "Wythe Huang", email = "wythehuang@icloud.com"},
 ]
-dependencies = [
-  "pandas>=2.2.3",
-  "scikit-learn>=1.6.1",
-  "torch>=2.7.0",
-  "tqdm>=4.67.1",
-  "transformers>=4.51.3",
-  "ollama>=0.1.6",
-]
-description = "Intrusion Detection through Log Analysis with Large Language Models (LLMs)"
-name = "intrusion-detection"
+description = "Log-based Intrusion Detection System using Large Language Models"
+license = {text = "MIT"}
+name = "intrusion-detection-llm"
 readme = "README.md"
 requires-python = ">=3.12"
 version = "1.0.0"
+
+dependencies = [
+  "torch>=2.2.0",
+  "numpy>=1.26.0",
+  "pandas>=2.2.0",
+  "scikit-learn>=1.4.0",
+  "tqdm>=4.66.0",
+  "ollama>=0.1.6",
+  "argparse>=1.4.0",
+]
+
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling"]
+
+[tool.pytest.ini_options]
+addopts = "-ra -q"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+
+[tool.black]
+include = '\.pyi?$'
+line-length = 88
+target-version = ['py312']
+
+[tool.isort]
+multi_line_output = 3
+profile = "black"
 
 [dependency-groups]
 dev = [
@@ -29,7 +50,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 # See Rules: https://docs.astral.sh/ruff/rules/
-ignore = ["D100", "D104", "D106", "E501", "TRY003", "ANN201", "COM812"]
+ignore = ["D100", "D104", "D106", "E501", "TRY003", "ANN201", "COM812", "T201"]
 select = [
   "F", # Pyflakes
   "E", # pycodestyle - Error
