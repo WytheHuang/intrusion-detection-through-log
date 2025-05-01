@@ -1,0 +1,37 @@
+**.DS_Store
+.ruff_cache
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*$py.class
+
+# Translations
+*.mo
+*.pot
+
+# Virtual Environments
+_venv
+.venv
+venv/
+ENV/
+
+# VisualStudioCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# pycharm
+.idea
+test.http
+
+.pytest_cache/
+.ipython/
+.env*
+!.env.example
+
+build/
+
+docs/*
