@@ -34,4 +34,5 @@ test.http
 
 build/
 
-docs/*
+docs
+pdf
