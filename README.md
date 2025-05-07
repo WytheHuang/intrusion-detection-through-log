@@ -1,31 +1,25 @@
 # Log-Based Intrusion Detection with LLMs
 
-This project implements an intrusion detection system that analyzes log entries using Large Language Models (LLMs) through the Ollama API. The system uses Gemma 12B to analyze and classify log entries for potential security threats.
+This project implements an intrusion detection system that analyzes log entries using Large Language Models (LLMs) through the Ollama API. The system uses the Gemma model to analyze and classify log entries for potential security threats.
 
 ## Features
 
-- Advanced log entry analysis using Ollama's Gemma 12B model
-- Multi-level threat classification (High Risk/Suspicious/Benign)
-- Sophisticated log preprocessing including:
-  - Timestamp extraction
+- Log entry analysis using Ollama's Gemma model
+- Binary classification (Malicious/Benign)
+- Advanced log preprocessing including:
+  - Timestamp extraction and normalization
   - IP address detection
   - Security-relevant keyword identification
-- Confidence scoring for threat detection
-- Batch processing capabilities
-- Command-line interface for easy analysis
+- Synthetic data generation capabilities
+- Model fine-tuning support
+- Batch processing with PyTorch
+- Command-line interface for data generation and detection
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.13+
 - Ollama installed and running locally
-- Required Python packages (install via `pip install -r requirements.txt`):
-  - torch
-  - numpy
-  - pandas
-  - scikit-learn
-  - tqdm
-  - ollama
-  - argparse
+- Required Python packages (install via `pip install -r requirements.txt` or `uv sync`)
 
 ## Project Structure
 
@@ -33,10 +27,12 @@ This project implements an intrusion detection system that analyzes log entries 
 .
 ├── data/               # Directory for log data
 ├── src/
-│   ├── data_processor.py  # Data loading and processing
-│   ├── model.py          # Model architecture and classifier
-│   ├── predict.py        # Prediction utilities
-│   └── run_detection.py  # Main detection script
+│   ├── data_generator.py   # Synthetic log data generation
+│   ├── data_processor.py   # Data loading and processing
+│   ├── fine_tuning.py      # Model fine-tuning utilities
+│   ├── model.py            # Model architecture and classifier
+│   ├── predict.py          # Prediction utilities
+│   └── run_detection.py    # Main detection script
 ├── docs/               # Documentation
 └── tests/              # Test files
 ```
@@ -54,12 +50,28 @@ This project implements an intrusion detection system that analyzes log entries 
    pip install -r requirements.txt
    ```
 
-3. Ensure Ollama is installed and running on your system with the Gemma 12B model:
+3. Ensure Ollama is installed and running on your system:
    ```bash
    ollama pull gemma:12b
    ```
 
 ## Usage
+
+### Generating Synthetic Data
+
+To generate synthetic log data for training:
+
+```bash
+python src/data_generator.py
+```
+
+### Fine-tuning the Model
+
+To fine-tune the model on your data:
+
+```bash
+python src/fine_tuning.py
+```
 
 ### Running Intrusion Detection
 
@@ -82,28 +94,21 @@ Parameters:
 ### Input Data Format
 
 The input CSV file should contain:
-- A column named 'log_text' containing the log messages, or
-- The first column will be used by default if 'log_text' is not present
-
-### Output Format
-
-The analysis results will include:
-- Original log entry
-- Threat classification (High Risk/Suspicious/Benign)
-- Confidence score
-- Detection timestamp
+- A 'timestamp' column with the log entry timestamp
+- A 'log_text' column containing the log messages
+- A 'label' column for training data (0 for benign, 1 for malicious)
 
 ## Model Architecture
 
 The system uses a two-stage approach:
-1. Log entries are preprocessed to extract security-relevant information
-2. Gemma 12B model analyzes the processed logs for threat detection
-
-The analysis pipeline includes:
-- Advanced preprocessing of log entries
-- Embedding generation using Gemma 12B
-- Multi-level threat classification
-- Confidence scoring
+1. Log entries are preprocessed to extract security-relevant information:
+   - Timestamp normalization
+   - IP address extraction
+   - Security keyword identification
+2. The processed logs are analyzed using:
+   - Gemma model for text embedding generation (4096-dimensional)
+   - Linear classifier for binary classification
+   - PyTorch-based training and inference
 
 ## License
 

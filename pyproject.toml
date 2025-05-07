@@ -17,11 +17,23 @@ dependencies = [
   "tqdm>=4.66.0",
   "ollama>=0.1.6",
   "argparse>=1.4.0",
+  "google-generativeai>=0.8.5",
+  "openai>=1.77.0",
 ]
 
 [build-system]
 build-backend = "hatchling.build"
 requires = ["hatchling"]
+
+[tool.hatch.build.targets.wheel]
+packages = [
+  "src/data_generator",
+  "src/data_processor",
+  "src/fine_tuning",
+  "src/model",
+  "src/predict",
+  "src/run_detection",
+]
 
 [tool.pytest.ini_options]
 addopts = "-ra -q"
