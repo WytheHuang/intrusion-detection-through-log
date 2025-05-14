@@ -18,8 +18,8 @@ This project implements an intrusion detection system that analyzes log entries 
 ## Prerequisites
 
 - Python 3.13+
-- Ollama installed and running locally
-- Required Python packages (install via `pip install -r requirements.txt` or `uv sync`)
+- Ollama installed and running locally with Gemma model
+- uv package manager (recommended) or pip
 
 ## Project Structure
 
@@ -45,13 +45,21 @@ This project implements an intrusion detection system that analyzes log entries 
    cd <repository-name>
    ```
 
-2. Install dependencies:
+2. Install dependencies using uv (recommended):
+   ```bash
+   uv pip install -r requirements.txt
+   ```
+   Or using pip:
    ```bash
    pip install -r requirements.txt
    ```
 
-3. Ensure Ollama is installed and running on your system:
+3. Ensure Ollama is installed and running on your system with the Gemma model:
    ```bash
+   # Install Ollama if not already installed (macOS/Linux)
+   curl -fsSL https://ollama.com/install.sh | sh
+
+   # Pull the Gemma model
    ollama pull gemma:12b
    ```
 
@@ -75,21 +83,70 @@ python src/fine_tuning.py
 
 ### Running Intrusion Detection
 
-To analyze log files for potential security threats:
+You can run the intrusion detection system in two ways:
+
+1. **Real-time Monitoring with Agent**
+
+The agent continuously monitors a directory for new or modified log files and analyzes them in real-time:
 
 ```bash
-python src/run_detection.py \
-    --input path/to/logs.csv \
-    --output results.csv \
+# Start the agent to monitor a directory
+python src/agent.py \
+    --model models/trained_model.pt \
+    --watch data/logs/ \
+    --output results/ \
     --batch-size 8 \
     --threshold 0.7
 ```
 
-Parameters:
-- `--input`: Path to the CSV file containing log entries (required)
-- `--output`: Path to save the analysis results (optional)
+The agent will:
+- Watch for new .csv log files in the specified directory
+- Analyze existing log files when started
+- Process new or modified files automatically
+- Generate analysis summaries and alerts
+- Save results to specified output directory
+
+2. **Batch Analysis of Log Files**
+
+For analyzing specific log files:
+
+```bash
+python src/run_detection.py \
+    --input data/logs/sample.csv \
+    --output results/analysis.csv \
+    --batch-size 8 \
+    --threshold 0.7
+```
+
+### Command Line Parameters
+
+Common parameters for both modes:
 - `--batch-size`: Number of logs to process at once (default: 8)
 - `--threshold`: Confidence threshold for high-risk classification (default: 0.7)
+- `--output`: Directory to save analysis results (optional)
+
+Agent-specific parameters:
+- `--model`: Path to the trained model checkpoint (required)
+- `--watch`: Directory to monitor for log files (required)
+
+Detection-specific parameters:
+- `--input`: Path to the CSV file containing log entries (required)
+
+### Output Format
+
+The system generates several types of output:
+1. CSV files with analysis results including:
+   - Predictions (0: benign, 1: malicious)
+   - Confidence scores
+   - Threat levels (Benign/Suspicious/High Risk)
+
+2. JSON summary reports containing:
+   - Total logs analyzed
+   - High risk entry counts and percentages
+   - Suspicious entry counts and percentages
+   - Timestamp and file information
+
+3. Real-time alerts for high-risk entries (in agent mode)
 
 ### Input Data Format
 

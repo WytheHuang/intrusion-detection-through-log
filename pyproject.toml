@@ -19,6 +19,7 @@ dependencies = [
   "argparse>=1.4.0",
   "google-generativeai>=0.8.5",
   "openai>=1.77.0",
+  "watchdog>=6.0.0",
 ]
 
 [build-system]
@@ -62,7 +63,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 # See Rules: https://docs.astral.sh/ruff/rules/
-ignore = ["D100", "D104", "D106", "E501", "TRY003", "ANN201", "COM812", "T201"]
+ignore = ["D100", "D104", "D106", "E501", "TRY003", "ANN201", "COM812", "T201", "G004"]
 select = [
   "F", # Pyflakes
   "E", # pycodestyle - Error
