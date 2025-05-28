@@ -1,46 +1,178 @@
 import re
+from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar, Literal
 
 import numpy as np
 import ollama
 import torch
+from google.generativeai import GenerativeModel
+from google.generativeai import configure as configure_genai
+from openai import OpenAI
 from torch import nn
+
+ProviderType = Literal["ollama", "openai", "gemini"]
+
+
+class BaseLLMProvider(ABC):
+    """Abstract base class for LLM providers."""
+
+    embedding_dim: ClassVar[int]
+
+    @abstractmethod
+    def get_embeddings(self, text: str) -> np.ndarray:
+        """Get embeddings for the input text.
+
+        Args:
+            text: Input text to get embeddings for
+
+        Returns:
+            Embedding vector as numpy array
+        """
+
+
+class OllamaProvider(BaseLLMProvider):
+    """Ollama-based LLM provider."""
+
+    embedding_dim = 4096  # Ollama's default embedding dimension
+
+    def __init__(self, model_name: str = "gemma3:12b") -> None:
+        """Initialize Ollama provider.
+
+        Args:
+            model_name: Name of the Ollama model to use
+        """
+        self.client = ollama.Client()
+        self.model_name = model_name
+
+    def get_embeddings(self, text: str) -> np.ndarray:
+        """Get embeddings using Ollama.
+
+        Args:
+            text: Input text to get embeddings for
+
+        Returns:
+            Embedding vector as numpy array
+        """
+        response = self.client.embeddings(model=self.model_name, prompt=text)
+        return np.array(response["embedding"])
+
+
+class OpenAIProvider(BaseLLMProvider):
+    """OpenAI-based LLM provider."""
+
+    embedding_dim = 3072  # OpenAI text-embedding-3-large dimension
+
+    def __init__(self, api_key: str, model_name: str = "text-embedding-3-large") -> None:
+        """Initialize OpenAI provider.
+
+        Args:
+            api_key: OpenAI API key
+            model_name: Name of the OpenAI model to use
+        """
+        self.client = OpenAI(api_key=api_key)
+        self.model_name = model_name
+
+    def get_embeddings(self, text: str) -> np.ndarray:
+        """Get embeddings using OpenAI.
+
+        Args:
+            text: Input text to get embeddings for
+
+        Returns:
+            Embedding vector as numpy array
+        """
+        response = self.client.embeddings.create(
+            model=self.model_name,
+            input=text,
+        )
+        return np.array(response.data[0].embedding)
+
+
+class GeminiProvider(BaseLLMProvider):
+    """Google's Gemini-based LLM provider."""
+
+    embedding_dim = 768  # Gemini's embedding dimension
+
+    def __init__(self, api_key: str, model_name: str = "embedding-001") -> None:
+        """Initialize Gemini provider.
+
+        Args:
+            api_key: Google API key
+            model_name: Name of the Gemini model to use
+        """
+        configure_genai(api_key=api_key)
+        self.model = GenerativeModel(model_name)
+
+    def get_embeddings(self, text: str) -> np.ndarray:
+        """Get embeddings using Gemini.
+
+        Args:
+            text: Input text to get embeddings for
+
+        Returns:
+            Embedding vector as numpy array
+        """
+        response = self.model.embed_content(text)
+        return np.array(response.embedding)
 
 
 class LogAnalysisModel(nn.Module):
-    """A neural network model for analyzing log entries using Ollama embeddings.
+    """A neural network model for analyzing log entries using various LLM providers.
 
-    This model uses Ollama's Gemma 12B model to analyze system logs for intrusion detection.
-    It preprocesses log entries to extract key information and generates embeddings for classification.
+    This model can use different LLM providers (Ollama, OpenAI, Gemini) to analyze
+    system logs for intrusion detection. It preprocesses log entries to extract key
+    information and generates embeddings for classification.
+
+    Args:
+        provider: The LLM provider to use ("ollama", "openai", or "gemini")
+        model_name: Name of the model to use (provider-specific)
+        api_key: API key for OpenAI or Gemini (not needed for Ollama)
+        num_labels: Number of classification labels (default: 2)
 
     Attributes:
         num_labels : int
-            Number of classification labels (default is 2 for binary classification: benign vs malicious)
-        model_name : str
-            Name of the Ollama model to use for embeddings
-        client : ollama.Client
-            Client instance for making requests to Ollama API
+            Number of classification labels
+        provider : BaseLLMProvider
+            The LLM provider instance for generating embeddings
     """
 
-    def __init__(self, model_name: str = "gemma:12b", num_labels: int = 2) -> None:
+    def __init__(
+        self,
+        provider: ProviderType = "ollama",
+        model_name: str | None = None,
+        api_key: str | None = None,
+        num_labels: int = 2,
+    ) -> None:
         """Initialize the model class.
 
-        This constructor initializes a new instance with a specified LLM model and number of output labels.
-
         Args:
-            model_name (str): Name of the Ollama model to use. Defaults to "gemma:12b".
-            num_labels (int): Number of classification labels. Defaults to 2.
-
-        Attributes:
-            num_labels (int): Number of classification labels stored as instance variable
-            model_name (str): Name of the model stored as instance variable
-            client (ollama.Client): Ollama client instance for model interaction
+            provider: The LLM provider to use
+            model_name: Name of the model to use (provider-specific)
+            api_key: API key for OpenAI or Gemini
+            num_labels: Number of classification labels
         """
         super().__init__()
         self.num_labels = num_labels
-        self.model_name = model_name
-        self.client = ollama.Client()
+
+        # Initialize the appropriate provider
+        if provider == "ollama":
+            self.provider = OllamaProvider(model_name or "gemma3:12b")
+        elif provider == "openai":
+            if not api_key:
+                raise ValueError("OpenAI API key is required")
+            self.provider = OpenAIProvider(api_key, model_name or "text-embedding-3-large")
+        elif provider == "gemini":
+            if not api_key:
+                raise ValueError("Google API key is required")
+            self.provider = GeminiProvider(api_key, model_name or "embedding-001")
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+
+    @property
+    def embedding_dim(self) -> int:
+        """Get the embedding dimension for the current provider."""
+        return self.provider.embedding_dim
 
     def _preprocess_log(self, log_entry: str) -> str:
         """Preprocess a log entry to extract relevant information.
@@ -96,7 +228,7 @@ class LogAnalysisModel(nn.Module):
         return f"Analyze this log entry for potential security threats: {timestamp} {ip_info} {keyword_info} {normalized_text}"
 
     def _process_text(self, text: str) -> np.ndarray:
-        """Process text through Ollama and return embeddings.
+        """Process text through the LLM provider and return embeddings.
 
         Args:
             text: The preprocessed log entry text
@@ -107,9 +239,8 @@ class LogAnalysisModel(nn.Module):
         # Preprocess the log entry
         processed_text = self._preprocess_log(text)
 
-        # Get embeddings using Ollama
-        response = self.client.embeddings(model=self.model_name, prompt=processed_text)
-        return np.array(response["embedding"])
+        # Get embeddings using the provider
+        return self.provider.get_embeddings(processed_text)
 
     def forward(self, texts: list[str]) -> torch.Tensor:
         """Process a batch of texts through the model.
@@ -179,7 +310,8 @@ class LogClassifier:
         """
         self.model = model
         self.device = device
-        self.classifier = nn.Linear(4096, model.num_labels).to(device)  # Ollama embeddings are 4096-dimensional
+        # Use the provider's embedding dimension
+        self.classifier = nn.Linear(model.embedding_dim, model.num_labels).to(device)
         self.criterion = nn.CrossEntropyLoss()
         self.optimizer = torch.optim.AdamW(self.classifier.parameters(), lr=2e-5)
 

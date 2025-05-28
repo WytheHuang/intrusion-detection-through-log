@@ -6,10 +6,12 @@ for potential security threats using the trained model.
 
 import argparse
 import asyncio
+import dataclasses
 import json
 import logging
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 import torch
@@ -19,6 +21,21 @@ from watchdog.observers import Observer
 from data_processor import LogProcessor
 from model import LogAnalysisModel, LogClassifier
 
+ProviderType = Literal["ollama", "openai", "gemini"]
+
+
+@dataclasses.dataclass
+class AgentConfig:
+    """Configuration for the log analysis agent."""
+
+    watch_path: str
+    batch_size: int = 8
+    threshold: float = 0.7
+    output_dir: str | None = None
+    provider: ProviderType = "ollama"
+    model_name: str | None = None
+    api_key: str | None = None
+
 
 class LogAnalysisAgent:
     """Agent for real-time log file monitoring and analysis.
@@ -27,48 +44,28 @@ class LogAnalysisAgent:
     analyzes new entries for potential security threats in real-time.
 
     Args:
-        model_path: Path to the trained model checkpoint
-        watch_path: Path to the directory or file to monitor
-        batch_size: Number of logs to process at once
-        threshold: Confidence threshold for threat detection
-        output_dir: Directory to save analysis results
-
-    Attributes:
-        model: The loaded log analysis model
-        classifier: The classifier for making predictions
-        processor: Log data processor instance
-        watch_path: Path being monitored
-        threshold: Detection threshold
-        output_dir: Results output directory
+        config: Agent configuration parameters
     """
 
-    def __init__(
-        self,
-        model_path: str,
-        watch_path: str,
-        batch_size: int = 8,
-        threshold: float = 0.7,
-        output_dir: str | None = None,
-    ) -> None:
+    def __init__(self, config: AgentConfig) -> None:
         """Initialize the log analysis agent.
 
         Args:
-            model_path: Path to the trained model checkpoint
-            watch_path: Path to monitor for log files
-            batch_size: Batch size for processing
-            threshold: Confidence threshold for threat detection
-            output_dir: Directory to save results (optional)
+            config: Agent configuration parameters
         """
         # Initialize model and components
-        self.model = LogAnalysisModel(model_name="gemma:12b")
-        self.model.load(model_path)
+        self.model = LogAnalysisModel(
+            provider=config.provider,
+            model_name=config.model_name,
+            api_key=config.api_key,
+        )
         self.classifier = LogClassifier(self.model)
-        self.processor = LogProcessor(batch_size=batch_size)
+        self.processor = LogProcessor(batch_size=config.batch_size)
 
         # Set paths and parameters
-        self.watch_path = Path(watch_path)
-        self.threshold = threshold
-        self.output_dir = Path(output_dir) if output_dir else None
+        self.watch_path = Path(config.watch_path)
+        self.threshold = config.threshold
+        self.output_dir = Path(config.output_dir) if config.output_dir else None
         if self.output_dir:
             self.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -232,37 +229,21 @@ class LogFileHandler(FileSystemEventHandler):
             asyncio.run(self.agent.process_file(Path(event.src_path)))
 
 
-async def run_agent(
-    model_path: str,
-    watch_path: str,
-    batch_size: int = 8,
-    threshold: float = 0.7,
-    output_dir: str | None = None,
-) -> None:
+async def run_agent(config: AgentConfig) -> None:
     """Run the log analysis agent.
 
     This function sets up and runs the agent to monitor log files for threats.
 
     Args:
-        model_path: Path to the trained model checkpoint
-        watch_path: Path to monitor for log files
-        batch_size: Batch size for processing
-        threshold: Confidence threshold for threat detection
-        output_dir: Directory to save results (optional)
+        config: Agent configuration parameters
     """
     # Initialize agent
-    agent = LogAnalysisAgent(
-        model_path=model_path,
-        watch_path=watch_path,
-        batch_size=batch_size,
-        threshold=threshold,
-        output_dir=output_dir,
-    )
+    agent = LogAnalysisAgent(config)
 
     # Set up file system observer
     observer = Observer()
     handler = LogFileHandler(agent)
-    watch_path = Path(watch_path)
+    watch_path = Path(config.watch_path)
     observer.schedule(handler, str(watch_path), recursive=False)
     observer.start()
 
@@ -282,22 +263,23 @@ async def run_agent(
 
 
 def setup_argparse() -> argparse.ArgumentParser:
-    """Set up command line argument parsing.
-
-    Returns:
-        ArgumentParser instance configured with required arguments
-    """
+    """Set up command line argument parsing."""
     parser = argparse.ArgumentParser(description="Run an agent to monitor and analyze log files for security threats")
-    parser.add_argument("--model", type=str, required=True, help="Path to trained model checkpoint")
     parser.add_argument("--watch", type=str, required=True, help="Path to monitor for log files")
     parser.add_argument("--output", type=str, help="Directory to save analysis results")
     parser.add_argument("--batch-size", type=int, default=8, help="Batch size for processing (default: 8)")
     parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.7,
-        help="Confidence threshold for threat detection (default: 0.7)",
+        "--threshold", type=float, default=0.7, help="Confidence threshold for threat detection (default: 0.7)"
     )
+    parser.add_argument(
+        "--provider",
+        type=str,
+        choices=["ollama", "openai", "gemini"],
+        default="ollama",
+        help="LLM provider to use (default: ollama)",
+    )
+    parser.add_argument("--model-name", type=str, help="Model name for the chosen provider")
+    parser.add_argument("--api-key", type=str, help="API key for OpenAI or Gemini (not needed for Ollama)")
     return parser
 
 
@@ -307,15 +289,16 @@ def main() -> None:
     args = parser.parse_args()
 
     try:
-        asyncio.run(
-            run_agent(
-                model_path=args.model,
-                watch_path=args.watch,
-                batch_size=args.batch_size,
-                threshold=args.threshold,
-                output_dir=args.output,
-            )
+        config = AgentConfig(
+            watch_path=args.watch,
+            batch_size=args.batch_size,
+            threshold=args.threshold,
+            output_dir=args.output,
+            provider=args.provider,
+            model_name=args.model_name,
+            api_key=args.api_key,
         )
+        asyncio.run(run_agent(config))
     except Exception as e:
         print(f"Error running agent: {e!s}")
 

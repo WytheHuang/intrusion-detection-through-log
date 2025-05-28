@@ -1,10 +1,13 @@
 # Log-Based Intrusion Detection with LLMs
 
-This project implements an intrusion detection system that analyzes log entries using Large Language Models (LLMs) through the Ollama API. The system uses the Gemma model to analyze and classify log entries for potential security threats.
+This project implements an intrusion detection system that analyzes log entries using Large Language Models (LLMs). The system supports multiple LLM providers (Ollama, OpenAI, Gemini) to analyze and classify log entries for potential security threats.
 
 ## Features
 
-- Log entry analysis using Ollama's Gemma model
+- Multi-provider LLM support:
+  - Ollama (default, local deployment)
+  - OpenAI (API key required)
+  - Google's Gemini (API key required)
 - Binary classification (Malicious/Benign)
 - Advanced log preprocessing including:
   - Timestamp extraction and normalization
@@ -18,7 +21,10 @@ This project implements an intrusion detection system that analyzes log entries 
 ## Prerequisites
 
 - Python 3.13+
-- Ollama installed and running locally with Gemma model
+- One or more of the following LLM providers:
+  - Ollama installed locally (for Ollama provider)
+  - OpenAI API key (for OpenAI provider)
+  - Google Cloud API key (for Gemini provider)
 - uv package manager (recommended) or pip
 
 ## Project Structure
@@ -54,7 +60,9 @@ This project implements an intrusion detection system that analyzes log entries 
    pip install -r requirements.txt
    ```
 
-3. Ensure Ollama is installed and running on your system with the Gemma model:
+3. Set up your chosen LLM provider:
+
+   For Ollama (local deployment):
    ```bash
    # Install Ollama if not already installed (macOS/Linux)
    curl -fsSL https://ollama.com/install.sh | sh
@@ -62,6 +70,10 @@ This project implements an intrusion detection system that analyzes log entries 
    # Pull the Gemma model
    ollama pull gemma:12b
    ```
+
+   For OpenAI/Gemini:
+   - Obtain the necessary API keys from the respective provider
+   - Use the `--api-key` flag when running the detection script or agent
 
 ## Usage
 
@@ -90,13 +102,26 @@ You can run the intrusion detection system in two ways:
 The agent continuously monitors a directory for new or modified log files and analyzes them in real-time:
 
 ```bash
-# Start the agent to monitor a directory
+# Using Ollama (default)
 python src/agent.py \
-    --model models/trained_model.pt \
+    --watch data/logs/ \
+    --output results/
+
+# Using OpenAI
+python src/agent.py \
     --watch data/logs/ \
     --output results/ \
-    --batch-size 8 \
-    --threshold 0.7
+    --provider openai \
+    --api-key "your-openai-key" \
+    --model-name "text-embedding-3-large"
+
+# Using Gemini
+python src/agent.py \
+    --watch data/logs/ \
+    --output results/ \
+    --provider gemini \
+    --api-key "your-google-key" \
+    --model-name "embedding-001"
 ```
 
 The agent will:
@@ -111,11 +136,24 @@ The agent will:
 For analyzing specific log files:
 
 ```bash
+# Using Ollama (default)
+python src/run_detection.py \
+    --input data/logs/sample.csv \
+    --output results/analysis.csv
+
+# Using OpenAI
 python src/run_detection.py \
     --input data/logs/sample.csv \
     --output results/analysis.csv \
-    --batch-size 8 \
-    --threshold 0.7
+    --provider openai \
+    --api-key "your-openai-key"
+
+# Using Gemini
+python src/run_detection.py \
+    --input data/logs/sample.csv \
+    --output results/analysis.csv \
+    --provider gemini \
+    --api-key "your-google-key"
 ```
 
 ### Command Line Parameters
@@ -124,9 +162,11 @@ Common parameters for both modes:
 - `--batch-size`: Number of logs to process at once (default: 8)
 - `--threshold`: Confidence threshold for high-risk classification (default: 0.7)
 - `--output`: Directory to save analysis results (optional)
+- `--provider`: LLM provider to use ("ollama", "openai", or "gemini")
+- `--model-name`: Model name for the chosen provider
+- `--api-key`: API key for OpenAI or Gemini (not needed for Ollama)
 
 Agent-specific parameters:
-- `--model`: Path to the trained model checkpoint (required)
 - `--watch`: Directory to monitor for log files (required)
 
 Detection-specific parameters:
@@ -163,7 +203,10 @@ The system uses a two-stage approach:
    - IP address extraction
    - Security keyword identification
 2. The processed logs are analyzed using:
-   - Gemma model for text embedding generation (4096-dimensional)
+   - Provider-specific embeddings:
+     - Ollama: 4096 dimensions
+     - OpenAI: 3072 dimensions
+     - Gemini: 768 dimensions
    - Linear classifier for binary classification
    - PyTorch-based training and inference
 
